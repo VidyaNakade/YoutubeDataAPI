@@ -3,6 +3,7 @@ package com.test;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.math.BigInteger;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Iterator;
@@ -21,6 +22,8 @@ import com.google.api.services.youtube.model.ResourceId;
 import com.google.api.services.youtube.model.SearchListResponse;
 import com.google.api.services.youtube.model.SearchResult;
 import com.google.api.services.youtube.model.Thumbnail;
+import com.google.api.services.youtube.model.Video;
+import com.google.api.services.youtube.model.VideoListResponse;
 
 /**
  * Print a list of videos matching a search term.
@@ -34,7 +37,7 @@ public class Search {
      * contains the developer's API key.
      */
 
-    private static final long NUMBER_OF_VIDEOS_RETURNED = 25;
+    private static final long NUMBER_OF_VIDEOS_RETURNED = 10;
     
     /**
      * Define a global instance of the HTTP transport.
@@ -45,7 +48,7 @@ public class Search {
      * Define a global instance of the JSON factory.
      */
     public static final JsonFactory JSON_FACTORY = new JacksonFactory();
-
+    public static final String apiKey = "AIzaSyB0ybbklH3__l_wJ9_ik1WkKa2ffCVCcg4";
 
     /**
      * Define a global instance of a Youtube object, which will be used
@@ -81,7 +84,7 @@ public class Search {
             // Set your developer key from the {{ Google Cloud Console }} for
             // non-authenticated requests. See:
             // {{ https://cloud.google.com/console }}
-            String apiKey = "AIzaSyB0ybbklH3__l_wJ9_ik1WkKa2ffCVCcg4";
+            
             search.setKey(apiKey);
             search.setQ(queryTerm);
 
@@ -111,6 +114,7 @@ public class Search {
                     + e.getDetails().getMessage());
         } catch (IOException e) {
             System.err.println("There was an IO error: " + e.getCause() + " : " + e.getMessage());
+            e.printStackTrace();
         } catch (Throwable t) {
             t.printStackTrace();
         }
@@ -142,12 +146,12 @@ public class Search {
      *
      * @param query Search query (String)
      */
-    private static void prettyPrint(Iterator<SearchResult> iteratorSearchResults, String query) {
+    private static void prettyPrint(Iterator<SearchResult> iteratorSearchResults, String query) throws IOException {
 
-        System.out.println("\n=============================================================");
+        System.out.println("\n=====================================================================================");
         System.out.println(
-                "   First " + NUMBER_OF_VIDEOS_RETURNED + " videos for search on \"" + query + "\".");
-        System.out.println("=============================================================\n");
+                "   Top " + NUMBER_OF_VIDEOS_RETURNED + " most watched videos in past 24 hours for search on \"" + query + "\".");
+        System.out.println("=====================================================================================\n");
 
         if (!iteratorSearchResults.hasNext()) {
             System.out.println(" There aren't any results for your query.");
@@ -158,15 +162,23 @@ public class Search {
             SearchResult singleVideo = iteratorSearchResults.next();
             ResourceId rId = singleVideo.getId();
 
+
+            // Define the API request for retrieving search results.
+            YouTube.Videos.List search = youtube.videos().list("id,statistics").setId(rId.getVideoId()).setMaxResults(new Long(1)).setKey(apiKey);
+            List<Video> videoList = search.execute().getItems();
+            BigInteger viewCount = new BigInteger("0");
+            
+            if (videoList != null) {
+            	Video res = videoList.get(0);
+            	viewCount = res.getStatistics().getViewCount();
+            }
+            
             // Confirm that the result represents a video. Otherwise, the
             // item will not contain a video ID.
             if (rId.getKind().equals("youtube#video")) {
-                Thumbnail thumbnail = singleVideo.getSnippet().getThumbnails().getDefault();
-               
-                System.out.println(" Video Id" + rId.getVideoId());
-                System.out.println(" Title: " + singleVideo.getSnippet().getTitle());
-                System.out.println(" Thumbnail: " + thumbnail.getUrl());
-                System.out.println("\n-------------------------------------------------------------\n");
+                System.out.print(" Video Id: " + rId.getVideoId());
+                System.out.print("\t||\t Title: " + singleVideo.getSnippet().getTitle());
+                System.out.println("\t||\t View Count: " + viewCount);
             }
         }
     }
